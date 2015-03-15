@@ -12,7 +12,7 @@ namespace VMtranslator
         static void Main(string[] args)
         {
             List<String> Files = new List<string>();
-            string file = "StackTest.vm";
+            string file = "BasicTest.vm";
             if (args.Length > 0)
                 file = args[0];
 
@@ -180,7 +180,7 @@ namespace VMtranslator
                     case "lt": compare("JLT"); break;
                     case "and": binary("D&A"); break;
                     case "or": binary("D|A"); break;
-                    case "not": binary("!D"); break;
+                    case "not": unary("!D"); break;
                 }
             }
             void writeLabel(string label) { l(label); }
@@ -224,6 +224,7 @@ namespace VMtranslator
                 for(int i = 0; i < locals; i++)
                     pushPop("push", "constant", "0");
             }
+
             void pushPop(string command, string seg, string index)
             {
                 if (command == "push")
@@ -242,23 +243,27 @@ namespace VMtranslator
                     else if (seg == "static") stackToStatic(seg, int.Parse(index));
                 }
             }
+
             void popToDest(string dest) { decSp(); stackToDest(dest); }
 
             void prevFrameToReg(string reg)
             {
+                comment("prevFrameToReg", 1);
                 regToDest("D", "13");
                 c("D", "D-1");
                 compToReg("13", "D");
                 c("A", "D");
                 c("D", "M");
                 compToReg(reg, "D");
+                comment("prevFrameToReg", 2);
             }
             
             //Arithmatic
-            void unary(string comp) { decSp(); stackToDest("D"); c("D", comp); compToStack(); incSp(); }
-            void binary(string comp) { decSp(); stackToDest("D"); decSp(); stackToDest("A"); c("D", comp); compToStack(); incSp(); }
+            void unary(string comp) { comment("Unary:" + comp, 1); decSp(); stackToDest("D"); c("D", comp); compToStack(); incSp(); comment("Unary:" + comp, 2); }
+            void binary(string comp) { comment("Binary:" + comp, 1); decSp(); stackToDest("D"); decSp(); stackToDest("A"); c("D", comp); compToStack(); incSp(); comment("Binary:" + comp, 2); }
             void compare(string jump) 
             {
+                comment("Compare:"+jump, 1);
                 decSp();
                 stackToDest("D");
                 decSp();
@@ -271,12 +276,13 @@ namespace VMtranslator
                 compToStack("-1");
                 l(labne);
                 incSp();
+                comment("Compare:" + jump, 2);
             }
             
             // SP
-            void incSp() {a("SP"); c("M", "M+1");}
-            void decSp() {a("SP"); c("M", "M-1");}
-            void loadSp() {a("SP"); c("A", "M");}
+            void incSp() { comment("IncSp", 1); a("SP"); c("M", "M+1"); comment("IncSp", 2); }
+            void decSp() { comment("DecSp", 1); a("SP"); c("M", "M-1"); comment("DecSp", 2); }
+            void loadSp() { comment("LoadSp", 1); a("SP"); c("A", "M"); comment("LoadSp", 2); }
 
             // Store onto stack
             void valToStack(string val) { a(val); c("D", "A"); compToStack(); }
@@ -289,12 +295,12 @@ namespace VMtranslator
             string regNum(string seg, int index) { return "R" + (regBase[seg] + index); }
             void stackToReg(string seg, int index) { stackToDest("D"); compToReg(regNum(seg,index), "D"); }
             void stackToMem(string seg, int index, bool ind = true) { loadSeg(seg, index, ind); compToReg("15", "D"); stackToDest("D"); regToDest("A", "15"); c("M", "D"); }
-            void stackToStatic(string seg, int index) { stackToDest("D"); a(fileName+"."+index); c("M", "D"); }
+            void stackToStatic(string seg, int index) { stackToDest("D"); a(fileName + "." + index); c("M", "D"); }
             void stackToDest(string dest) {loadSp(); c(dest, "M");}
 
             // load address of seg+index into A and D registers
             void loadSPOffset(int offset) { loadSeg("0", offset); }
-            void loadSeg(string seg, int index, bool ind=true)
+            void loadSeg(string seg, int index, bool ind = true)
             {
                 if (index == 0)
                 {
@@ -347,7 +353,8 @@ namespace VMtranslator
             }
             void cDM() { c("D", "M"); }
             void l(string label) { output.WriteLine("(" + label + ")"); }
-
+            public bool debug = true;
+            void comment(string val, int openClose = 0) { if (!debug) return; output.WriteLine("// " + (openClose == 0 ? val : (openClose == 1 ? ("<" + val + ">") : ("</" + val + ">")))); }
 
         }
     }
