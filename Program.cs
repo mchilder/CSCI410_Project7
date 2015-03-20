@@ -12,7 +12,7 @@ namespace VMtranslator
         static void Main(string[] args)
         {
             List<String> Files = new List<string>();
-            string file = "BasicTest.vm";
+            string file = "C:\\Users\\Matthew\\Downloads\\nand2tetris\\projects\\08\\FunctionCalls\\SimpleFunction";
             if (args.Length > 0)
                 file = args[0];
 
@@ -118,7 +118,7 @@ namespace VMtranslator
             {
                 setFileName(file);
                 output = new System.IO.StreamWriter(file.Replace(".vm", "")+".asm", false);
-                //writeInit();
+                writeInit();
             }
             public void setFileName(string file)
             {
@@ -167,9 +167,10 @@ namespace VMtranslator
             }
 
             // Write
-            public void writeInit() { a("256"); c("D", "A"); compToReg("0", "D"); writeCall("Sys.init", 0); }
+            public void writeInit() { comment("Begin Init"); a("256"); c("D", "A"); compToReg("0", "D"); writeCall("Sys.init", 0); comment("End Init"); }
             void writeArithmetic(string command)
             {
+                comment("Arithmetic:");
                 switch (command)
                 {
                     case "add": binary("D+A"); break;
@@ -184,20 +185,47 @@ namespace VMtranslator
                 }
             }
             void writeLabel(string label) { l(label); }
-            void writeIf(string label) { popToDest("D"); a(label); c("", "D", "JNE"); }
+            void writeIf(string label) { comment("If:"); popToDest("D"); a(label); c("", "D", "JNE"); }
+            void copyRegisterToStack(string reg)
+            {
+                comment("CopyRegToStack( "+reg+" ): " );
+                a(reg);
+                cDM();
+                loadSp();
+                cMD();
+                incSp();
+            }
             void writeCall(string name, int numArgs)
             {
+                comment("WriteCall - " + name + "( "+numArgs+ "args ):" );
                 string returnAddress = newLabel();
                 pushPop("push", "constant", returnAddress);
-                pushPop("push", "reg", "1");
-                pushPop("push", "reg", "2");
-                pushPop("push", "reg", "3");
-                pushPop("push", "reg", "4");
-                loadSPOffset(-numArgs - 5);
-                compToReg("2", "D");
-                regToReg("1", "0");
+                copyRegisterToStack("LCL");
+                copyRegisterToStack("ARG");
+                copyRegisterToStack("THIS");
+                copyRegisterToStack("THAT");
+
+                //ARG = SP - n - 5
+
+                a("SP");
+                cDM();
+                a(numArgs.ToString());
+                c("D", "D-A");
+                a("5");
+                c("D", "D-A");
+                a("ARG");
+                cMD();
+
+                //LCL = SP
+                a("SP");
+                cDM();
+                a("LCL");
+                cMD();
+
+
                 a(name);
                 c("", "0", "JMP");
+
                 l(returnAddress);
             }
             void writeGoto(string label) { a(label); c("", "0", "JMP"); }
@@ -300,14 +328,12 @@ namespace VMtranslator
                 compToReg("R13", "D"); 
                 stackToDest("D"); 
                 regToDest("A", "R13"); 
-                c("M", "D");
+                cMD();
                 comment("StackToMem:" + seg + " to " + index, 2);
             }
-            void stackToStatic(string seg, int index) { stackToDest("D"); a(fileName + "." + index); c("M", "D"); }
+            void stackToStatic(string seg, int index) { stackToDest("D"); a(fileName + "." + index); cMD(); }
             void stackToDest(string dest) {loadSp(); c(dest, "M");}
 
-            // load address of seg+index into A and D registers
-            void loadSPOffset(int offset) { loadSeg("0", offset); }
             void loadSeg(string seg, int index, bool ind = true)
             {
                 if (index == 0)
@@ -360,8 +386,9 @@ namespace VMtranslator
                 output.WriteLine(line);
             }
             void cDM() { c("D", "M"); }
+            void cMD() { c("M", "D"); }
             void l(string label) { output.WriteLine("(" + label + ")"); }
-            public bool debug = false;
+            public bool debug = true;
             void comment(string val, int openClose = 0) { if (!debug) return; output.WriteLine("// " + (openClose == 0 ? val : (openClose == 1 ? ("<" + val + ">") : ("</" + val + ">")))); }
 
         }
