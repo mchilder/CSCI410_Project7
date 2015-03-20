@@ -36,7 +36,7 @@ namespace VMtranslator
             foreach (string f in Files)
             {
                 Parser p = new Parser(f);
-                cw.setFileName(f);
+                cw.setFileName(Path.GetFileName(f));
                 while (p.hasMoreCommands())
                 {
                     p.advance();
@@ -124,7 +124,7 @@ namespace VMtranslator
             {
                 fileName = file;
             }
-            Dictionary<string, int> regBase = new Dictionary<string, int> { { "reg", 1 }, { "pointer", 3 }, { "temp", 5 } };
+            Dictionary<string, int> regBase = new Dictionary<string, int> { {"LCL", 1}, {"ARG", 2}, {"THIS", 3}, {"THAT", 4}, { "reg", 1 }, { "pointer", 3 }, { "temp", 5 } };
             Dictionary<string, string> memName = new Dictionary<string, string> { { "local", "LCL" }, { "argument", "ARG" }, { "this", "THIS" }, { "that", "THAT" } };
             int labelNum = 0;
 
@@ -287,14 +287,22 @@ namespace VMtranslator
             // Store onto stack
             void valToStack(string val) { a(val); c("D", "A"); compToStack(); }
             void regToStack(string seg, int index) { regToDest("D", regNum(seg, index)); compToStack(); }
-            void memToStack(string seg, int index, bool ind = true) { loadSeg(seg, index, ind); cDM(); compToStack(); }
+            void memToStack(string seg, int index, bool ind = true) { comment("memToStack:" + seg + " to " + index, 1); loadSeg(seg, index, ind); cDM(); compToStack(); comment("memToStack:" + seg + " to " + index, 2); }
             void staticToStack(string seg, int index) { a(fileName + "." + index); cDM(); compToStack(); }
             void compToStack(string comp="D") { loadSp(); c("M", comp); }
 
             // Retrieve from stack
             string regNum(string seg, int index) { return "R" + (regBase[seg] + index); }
             void stackToReg(string seg, int index) { stackToDest("D"); compToReg(regNum(seg,index), "D"); }
-            void stackToMem(string seg, int index, bool ind = true) { loadSeg(seg, index, ind); compToReg("15", "D"); stackToDest("D"); regToDest("A", "15"); c("M", "D"); }
+            void stackToMem(string seg, int index, bool ind = true) {
+                comment("stackToMem:" + seg + " to " + index, 1);
+                loadSeg(seg, index, ind); 
+                compToReg("R13", "D"); 
+                stackToDest("D"); 
+                regToDest("A", "R13"); 
+                c("M", "D");
+                comment("StackToMem:" + seg + " to " + index, 2);
+            }
             void stackToStatic(string seg, int index) { stackToDest("D"); a(fileName + "." + index); c("M", "D"); }
             void stackToDest(string dest) {loadSp(); c(dest, "M");}
 
@@ -324,8 +332,8 @@ namespace VMtranslator
             }
 
             // Registers
-            void regToDest(string dest, string reg) { a(reg); c(dest, "M"); }
-            void compToReg(string comp, string reg) { a(reg); c("M", comp); }
+            void regToDest(string dest, string reg) { comment("regToDest:" + reg + " to " + dest, 1); a(reg); c(dest, "M"); }
+            void compToReg(string comp, string reg) { comment("compToReg:" + comp + " to " + reg, 1); a(comp); c("M", reg); }
             void regToReg(string dest, string src) { regToDest("D", src); compToReg(dest, "D"); }
             void indir(string dest = "A") { c(dest, "M"); }
 
@@ -353,7 +361,7 @@ namespace VMtranslator
             }
             void cDM() { c("D", "M"); }
             void l(string label) { output.WriteLine("(" + label + ")"); }
-            public bool debug = true;
+            public bool debug = false;
             void comment(string val, int openClose = 0) { if (!debug) return; output.WriteLine("// " + (openClose == 0 ? val : (openClose == 1 ? ("<" + val + ">") : ("</" + val + ">")))); }
 
         }
